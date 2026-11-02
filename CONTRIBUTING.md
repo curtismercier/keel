@@ -8,6 +8,18 @@ Work runs under the baton flow. The git workflow IS the baton.
 3. Open a PR when the return condition is met; the PR body = the BATON return section.
 4. **The lead's return-gate = the merge.** Failed gate = review comments, not a merge.
 
+## Working rules (before you build)
+_Adopted 2026-11-02 from [github/replica](https://github.com/github/replica) `AGENTS.md` (MIT) — a named adoption, not drift._
+- **Agree first, build second.** Settle the user · outcome · access · lifecycle · non-goals BEFORE implementation.
+- **Separate accepted requirements from proposed implementation.** Say which is which.
+- **One complete user flow at a time.** Finish a flow end-to-end before starting the next.
+- **Lead with the outcome, plain language.** Follow existing patterns over inventing new ones.
+
+## PR descriptions
+- Short plain-English paragraphs for a first-time reader. Mermaid (before/after) when it clarifies.
+- OMIT routine checklists / CI summaries / drafting disclaimers. Name only **real** verification gaps.
+- The PR body = the BATON return section (landed · gates moved · NEXT · intake · adversary verdict).
+
 ## The bar (crew self-law — amend only UPWARD, never down to fit a miss)
 - **Proof, not reports.** A check counts only after it has **failed for the right reason**.
   Visual work ships a screenshot/recording. Cite the readback, never the command.
