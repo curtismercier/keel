@@ -33,6 +33,7 @@ _Adopted 2026-11-02 from [github/replica](https://github.com/github/replica) `AG
 - A crew edits only its unit. Cross-unit change touches a contract → topology update + lead gate.
 - Secrets never commit. Gathered code is a candidate (provenance + license), adopted by named act.
 - Process → `workshop/`. Product → the core.
+- **Paths & naming.** Code lives under a package (`packages/<pkg>/…`), never a root `src/`. A package README's H1 is its import name (`# <project>.<pkg>`), so the dir, the import, and the doc all read the same.
 
 ## Graduation (definition of done — 7 verified gates, baton)
 Core (verified by use) · Proof (break-evidence) · Docs (stranger test) · Face (live page) ·
