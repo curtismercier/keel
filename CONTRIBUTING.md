@@ -16,9 +16,11 @@ _Adopted 2026-11-02 from [github/replica](https://github.com/github/replica) `AG
 - **Lead with the outcome, plain language.** Follow existing patterns over inventing new ones.
 
 ## PR descriptions
-- Short plain-English paragraphs for a first-time reader. Mermaid (before/after) when it clarifies.
+- Terse bullets, not paragraphs. A first-time reader gets it in 10 seconds. No self-justification.
 - OMIT routine checklists / CI summaries / drafting disclaimers. Name only **real** verification gaps.
 - The PR body = the BATON return section (landed · gates moved · NEXT · intake · adversary verdict).
+- Mermaid (before/after) only when it genuinely clarifies.
+- Reversible change = yours end-to-end: open, review, merge. Don't ask to merge a trivial PR.
 
 ## The bar (crew self-law — amend only UPWARD, never down to fit a miss)
 - **Proof, not reports.** A check counts only after it has **failed for the right reason**.
