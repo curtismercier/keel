@@ -1,0 +1,20 @@
+# secrets — never
+.env
+*.key
+*_token*
+# python
+.venv/
+__pycache__/
+*.pyc
+# node
+node_modules/
+dist/
+.next/
+# data / artifacts
+*.sqlite
+*.parquet
+# vendor: only notes commit
+vendor/*/repo/
+*.app/
+# macOS
+.DS_Store
