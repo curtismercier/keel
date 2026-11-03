@@ -1,0 +1,2 @@
+# Project scrub DENYLIST (client/project names). keel ships none - it is public.
+# One Python regex per line; '#' comments and blank lines ignored.
