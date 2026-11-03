@@ -12,7 +12,9 @@ Public repos are generated exports of this monorepo, never hand-edited. Each uni
   `--scrub --files <path>...`. Each hit prints `file:line [class] match`; any hit exits 1.
   Optional per-project files (one regex per line, `#` comments): `.orchestrator/scrub-denylist.txt`
   (client names; keel ships none, it is public) and `.orchestrator/scrub-allowlist.txt` (a line matching
-  any regex is exempt: author notices, intentional examples).
+  any regex is exempt: author notices, intentional examples). `--denylist <path>` / `--allowlist <path>`
+  add regex files that AUGMENT (union with, never replace) those two, so an external tree can be scrubbed
+  with a custom list; a missing path errors.
 
 Usage: `python3 scripts/orchestrator-export-check.py --target public|private --files <path>...`
 Prove the gate can fail: `python3 scripts/orchestrator-export-check.py --self-test`

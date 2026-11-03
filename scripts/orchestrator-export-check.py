@@ -60,11 +60,13 @@ def check(target, files, units):
     return bad
 
 
-def load_patterns(name):
-    """Optional one-regex-per-line file in .orchestrator/ ('#' comments, blanks skipped)."""
-    path = os.path.join(ORCH, name)
-    if not os.path.isfile(path):
-        return []
+def load_patterns(name, path=None):
+    """One-regex-per-line file ('#' comments, blanks skipped). Default: optional file in
+    .orchestrator/ (missing -> []). Explicit `path` (CLI flag): must exist."""
+    if path is None:
+        path = os.path.join(ORCH, name)
+        if not os.path.isfile(path):
+            return []
     return [re.compile(l.strip()) for l in open(path, encoding="utf-8")
             if l.strip() and not l.lstrip().startswith("#")]
 
@@ -82,8 +84,13 @@ def scrub_text(name, text, deny, allow):
     return hits
 
 
-def scrub_files(files):
+def scrub_files(files, deny_path=None, allow_path=None):
+    """CLI deny/allow files AUGMENT (union with) the .orchestrator/ ones."""
     deny, allow = load_patterns("scrub-denylist.txt"), load_patterns("scrub-allowlist.txt")
+    if deny_path:
+        deny += load_patterns(None, deny_path)
+    if allow_path:
+        allow += load_patterns(None, allow_path)
     hits = []
     for f in files:
         if os.path.isfile(f):
@@ -131,6 +138,29 @@ def self_test():
     h = scrub_text("sample", "intentional-example /Us" + "ers/x/a", deny, allow)
     print(f"scrub allowlisted: {len(h)} hit(s) -> expect PASS:", "exempt ✓" if not h else f"allowlist ignored ✗ {h}")
     ok &= not h
+    # CLI --denylist/--allowlist augment the file-based lists (temp files, cleaned up)
+    import tempfile, shutil
+    tmp = tempfile.mkdtemp()
+    try:
+        def w(n, t):
+            q = os.path.join(tmp, n)
+            open(q, "w", encoding="utf-8").write(t)
+            return q
+        dl, al = w("deny.txt", "# synthetic\nAcmeCorp\n"), w("allow.txt", "cli-allowed\n")
+        tgt = w("t.txt", "built for AcmeCorp\n")
+        base, h = scrub_files([tgt]), scrub_files([tgt], deny_path=dl)
+        good = bool(h) and not base
+        print(f"scrub cli-denylist: base {len(base)} hit(s), with flag {len(h)} -> expect FAIL:",
+              "caught ✓" if good else "MISSED ✗")
+        ok &= good
+        pth = w("p.txt", "cli-allowed /Us" + "ers/x/a\n")
+        base, h = scrub_files([pth]), scrub_files([pth], allow_path=al)
+        good = bool(base) and not h
+        print(f"scrub cli-allowlist: base {len(base)} hit(s), with flag {len(h)} -> expect PASS:",
+              "exempt ✓" if good else "allowlist ignored ✗")
+        ok &= good
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     print(f"self-test: {'OK' if ok else 'FAILED'}")
     return 0 if ok else 1
 
@@ -140,6 +170,8 @@ def main():
     ap.add_argument("--target", choices=["public", "private"])
     ap.add_argument("--files", nargs="*", default=[])
     ap.add_argument("--scrub", action="store_true", help="scrub --files for leaks (implied by --target public)")
+    ap.add_argument("--denylist", metavar="PATH", help="extra denylist regex file (augments .orchestrator/scrub-denylist.txt)")
+    ap.add_argument("--allowlist", metavar="PATH", help="extra allowlist regex file (augments .orchestrator/scrub-allowlist.txt)")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     if a.self_test:
@@ -150,7 +182,7 @@ def main():
     if a.target:
         v += check(a.target, a.files, parse_units(open(TOPOLOGY).read()))
     if a.scrub or a.target == "public":
-        v += scrub_files(a.files)
+        v += scrub_files(a.files, a.denylist, a.allowlist)
     for x in v:
         print("EXPORT BLOCKED", x, file=sys.stderr)
     print(f"checked {len(a.files)} files for target={a.target or '-'}: {len(v)} violation(s)")
