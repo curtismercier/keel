@@ -1,0 +1,2 @@
+# Scrub ALLOWLIST: a line matching any regex here is exempt (legit author notice, intentional examples).
+# One Python regex per line; '#' comments and blank lines ignored.
