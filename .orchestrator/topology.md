@@ -9,10 +9,12 @@ apps/<app>  ──►  packages/<lib>  ──►  packages/<leaf>
 ```
 
 ## Units
-| Unit | Kind | Role | Status |
-|------|------|------|--------|
-| `packages/_template` | lib | (rename + describe) | template |
-| `apps/_template` | app | (rename + describe) | template |
+| Unit | Kind | Role | Status | Visibility | License |
+|------|------|------|--------|------------|---------|
+| `packages/_template` | lib | (rename + describe) | template | public-apache | Apache-2.0 |
+| `apps/_template` | app | (rename + describe) | template | public-apache | Apache-2.0 |
+
+`Visibility` = which export target may carry the unit (`public-apache` | `private-ent`); `License` = its license (`Apache-2.0` | `proprietary`). Read by the export gate — see `export.md`.
 
 ## External services
 - (name · URL · what it's for)
