@@ -17,4 +17,15 @@ Public repos are generated exports of this monorepo, never hand-edited. Each uni
 Usage: `python3 scripts/orchestrator-export-check.py --target public|private --files <path>...`
 Prove the gate can fail: `python3 scripts/orchestrator-export-check.py --self-test`
 
-Scope + remaining work (generator): `.soma/meetsoma/decisions/2026-11-02-estate-monorepo-export-scope.md`, Phase 2.
+## Generator
+`scripts/orchestrator-export.py --target public|private` reads the Units table, selects units whose
+Visibility matches (`public` -> `public-apache`, `private` -> `private-ent`), lists their files
+(`git ls-files`, so only tracked files), then runs the gate above over that set (a)+(b)+(c).
+PASS: prints the manifest (one path per line), exit 0. FAIL: prints `EXPORT BLOCKED ...`, exit 1.
+Pair: the generator decides *what* ships; the check is the independent verdict on it (it can also be
+run standalone on any file list). It emits the manifest only — tree copy, LICENSE/NOTICE, and the
+`.soma-core-export` stamp are still open.
+Prove it: `python3 scripts/orchestrator-export.py --self-test` (temp fixture: public export excludes the
+private unit and passes; a planted leak must FAIL).
+
+Scope + remaining work: `.soma/meetsoma/decisions/2026-11-02-estate-monorepo-export-scope.md`, Phase 2.
