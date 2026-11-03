@@ -23,9 +23,12 @@ Visibility matches (`public` -> `public-apache`, `private` -> `private-ent`), li
 (`git ls-files`, so only tracked files), then runs the gate above over that set (a)+(b)+(c).
 PASS: prints the manifest (one path per line), exit 0. FAIL: prints `EXPORT BLOCKED ...`, exit 1.
 Pair: the generator decides *what* ships; the check is the independent verdict on it (it can also be
-run standalone on any file list). It emits the manifest only — tree copy, LICENSE/NOTICE, and the
-`.soma-core-export` stamp are still open.
+run standalone on any file list).
+`--out <dir>`: after the gate PASSES, copies each manifest file into `<dir>` (relative paths kept),
+writes `<dir>/.soma-core-export` (do-not-edit marker) and `<dir>/LICENSE` (public: copy of repo-root
+LICENSE if present; private: proprietary notice). Gate FAIL -> exit 1, `<dir>` is never created.
 Prove it: `python3 scripts/orchestrator-export.py --self-test` (temp fixture: public export excludes the
-private unit and passes; a planted leak must FAIL).
+private unit and passes; `--out` tree has only the public unit + marker + LICENSE; a planted leak must
+FAIL and a gate-failing `--out` must produce nothing).
 
 Scope + remaining work: `.soma/meetsoma/decisions/2026-11-02-estate-monorepo-export-scope.md`, Phase 2.

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Export generator: select the topology units whose Visibility matches --target, enumerate their
 files (git ls-files), run the export gate (orchestrator-export-check.py: (a)+(b)+(c)) over that
-set. PASS -> print the manifest, exit 0. FAIL -> print violations, exit 1. Stdlib only."""
+set. PASS -> print the manifest, exit 0 (with --out <dir>: also copy the tree + marker + LICENSE).
+FAIL -> print violations, exit 1, write nothing. Stdlib only."""
 import argparse, importlib.util, os, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -45,6 +46,31 @@ def generate(gate, root, topology_text, target):
     return files, v
 
 
+def write_tree(root, files, out, target):
+    """Copy files into out (relative paths preserved) + .soma-core-export marker + LICENSE.
+    Caller must have passed the gate; this never runs on a failing set."""
+    for f in files:
+        dst = os.path.join(out, f)
+        os.makedirs(os.path.dirname(dst) or out, exist_ok=True)
+        shutil.copy2(os.path.join(root, f), dst)
+    os.makedirs(out, exist_ok=True)
+    with open(os.path.join(out, ".soma-core-export"), "w", encoding="utf-8") as fh:
+        fh.write(f"generated export tree ({target}) -- do not edit here; changes are applied upstream\n")
+    lic = os.path.join(root, "LICENSE")
+    if target == "public" and os.path.isfile(lic):
+        shutil.copy2(lic, os.path.join(out, "LICENSE"))
+    elif target == "private":
+        with open(os.path.join(out, "LICENSE"), "w", encoding="utf-8") as fh:
+            fh.write("Proprietary and confidential. All rights reserved. No license is granted.\n")
+    else:
+        print("warning: no LICENSE at repo root; public tree has none", file=sys.stderr)
+
+
+def tree_files(out):
+    return sorted(os.path.relpath(os.path.join(d, n), out).replace(os.sep, "/")
+                  for d, _, ns in os.walk(out) for n in ns)
+
+
 def self_test():
     gate = load_gate()
     tmp = tempfile.mkdtemp(prefix="export-gen-")
@@ -59,6 +85,7 @@ def self_test():
             p = os.path.join(tmp, rel)
             os.makedirs(os.path.dirname(p), exist_ok=True)
             open(p, "w").write(body)
+        open(os.path.join(tmp, "LICENSE"), "w").write("Apache License fixture\n")
         subprocess.run(["git", "init", "-q"], cwd=tmp, check=True)
         subprocess.run(["git", "add", "-A"], cwd=tmp, check=True)
 
@@ -74,6 +101,16 @@ def self_test():
         print(f"private export: {len(files)} file(s) {files} -> expect only private unit:", "✓" if psel else "✗")
         ok &= psel
 
+        # tree: public export into --out holds only the public unit + marker + LICENSE, no private file
+        files, v = generate(gate, tmp, topo, "public")
+        out = os.path.join(tmp, "_out_pub")
+        rc = main(["--target", "public", "--out", out], root=tmp, topo=topo)
+        got = tree_files(out) if os.path.isdir(out) else []
+        want = sorted(files + [".soma-core-export", "LICENSE"])
+        tree_ok = rc == 0 and got == want and not any("priv" in g for g in got)
+        print(f"public tree (rc={rc}): {got} -> expect only public unit + marker + LICENSE:", "✓" if tree_ok else f"✗ want {want}")
+        ok &= tree_ok
+
         # negative: leak a secret into the public unit, and a private file into public set
         open(os.path.join(tmp, "packages/pub/leak.py"), "w").write(f"T = '{secret}'\n")
         subprocess.run(["git", "add", "-A"], cwd=tmp, check=True)
@@ -81,6 +118,12 @@ def self_test():
         caught = any("leak.py" in x and "secret-sk" in x for x in v)
         print(f"planted leak in public unit: {len(v)} violation(s) -> expect FAIL:", "caught ✓" if caught else f"MISSED ✗ {v}")
         ok &= caught
+        # negative: gate FAIL must refuse -- non-zero exit, --out dir never created
+        out2 = os.path.join(tmp, "_out_leak")
+        rc = main(["--target", "public", "--out", out2], root=tmp, topo=topo)
+        refused = rc != 0 and not os.path.exists(out2)
+        print(f"gate-failing tree (rc={rc}): out dir exists={os.path.exists(out2)} -> expect refusal:", "refused ✓" if refused else "LEAKING TREE ✗")
+        ok &= refused
         os.remove(os.path.join(tmp, "packages/pub/leak.py"))
         subprocess.run(["git", "add", "-A"], cwd=tmp, check=True)
         # negative: unit flipped to public while holding the secret (cond a/c via topology)
@@ -96,24 +139,28 @@ def self_test():
     return 0 if ok else 1
 
 
-def main():
+def main(argv=None, root=ROOT, topo=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--target", choices=list(TARGET_VIS))
+    ap.add_argument("--out", help="write the export tree (files + .soma-core-export + LICENSE) here; only if the gate passes")
     ap.add_argument("--self-test", action="store_true")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     if a.self_test:
         return self_test()
     if not a.target:
         ap.error("--target or --self-test required")
     gate = load_gate()
-    files, v = generate(gate, ROOT, open(gate.TOPOLOGY, encoding="utf-8").read(), a.target)
+    files, v = generate(gate, root, topo or open(gate.TOPOLOGY, encoding="utf-8").read(), a.target)
     if v:
         for x in v:
             print("EXPORT BLOCKED", x, file=sys.stderr)
         print(f"export target={a.target}: {len(files)} file(s), {len(v)} violation(s) -> FAIL")
         return 1
+    if a.out:
+        write_tree(root, files, a.out, a.target)
     print("\n".join(files))
-    print(f"export target={a.target}: {len(files)} file(s), 0 violations -> PASS", file=sys.stderr)
+    print(f"export target={a.target}: {len(files)} file(s), 0 violations -> PASS"
+          + (f"; tree written to {a.out}" if a.out else ""), file=sys.stderr)
     return 0
 
 
