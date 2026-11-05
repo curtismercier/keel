@@ -7,7 +7,8 @@ import argparse, importlib.util, os, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, ".."))
-TARGET_VIS = {"public": "public-apache", "private": "private-ent"}
+TARGET_VIS = {"public": "public-core", "process": "public-process", "private": "private-ent"}
+PUBLIC_TARGETS = ("public", "process")
 
 
 def load_gate():
@@ -39,7 +40,7 @@ def generate(gate, root, topology_text, target):
     os.chdir(root)
     try:
         v = gate.check(target, files, units)
-        if target == "public":
+        if target in PUBLIC_TARGETS:
             v += gate.scrub_files(files)
     finally:
         os.chdir(cwd)
@@ -57,7 +58,7 @@ def write_tree(root, files, out, target):
     with open(os.path.join(out, ".soma-core-export"), "w", encoding="utf-8") as fh:
         fh.write(f"generated export tree ({target}) -- do not edit here; changes are applied upstream\n")
     lic = os.path.join(root, "LICENSE")
-    if target == "public" and os.path.isfile(lic):
+    if target in PUBLIC_TARGETS and os.path.isfile(lic):
         shutil.copy2(lic, os.path.join(out, "LICENSE"))
     elif target == "private":
         with open(os.path.join(out, "LICENSE"), "w", encoding="utf-8") as fh:
@@ -77,11 +78,13 @@ def self_test():
     ok = True
     try:
         topo = ("| Unit | Kind | Role | Status | Visibility | License |\n|---|---|---|---|---|---|\n"
-                "| `packages/pub` | lib | x | live | public-apache | Apache-2.0 |\n"
-                "| `packages/priv` | lib | x | live | private-ent | proprietary |\n")
+                "| `packages/pub` | lib | x | live | public-core | MIT |\n"
+                "| `packages/priv` | lib | x | live | private-ent | proprietary |\n"
+                "| `rings/tw01` | ring | shown work | live | public-process | MIT |\n")
         secret = "s" + "k-" + "a1B2" * 6  # synthetic, assembled at runtime
         for rel, body in {"packages/pub/a.py": "print('ok')\n", "packages/pub/b.py": "x = 1\n",
-                          "packages/priv/key.py": f"KEY = '{secret}'\n"}.items():
+                          "packages/priv/key.py": f"KEY = '{secret}'\n",
+                          "rings/tw01/cycle.md": "# tw01\n"}.items():
             p = os.path.join(tmp, rel)
             os.makedirs(os.path.dirname(p), exist_ok=True)
             open(p, "w").write(body)
@@ -100,6 +103,13 @@ def self_test():
         psel = files == ["packages/priv/key.py"]
         print(f"private export: {len(files)} file(s) {files} -> expect only private unit:", "✓" if psel else "✗")
         ok &= psel
+
+        # the third layer: the shown-work export carries the rings and nothing else
+        files, v = generate(gate, tmp, topo, "process")
+        rsel = files == ["rings/tw01/cycle.md"]
+        print(f"process export: {len(files)} file(s) {files} -> expect only the rings unit:",
+              "✓" if rsel and not v else f"✗ {v}")
+        ok &= rsel and not v
 
         # tree: public export into --out holds only the public unit + marker + LICENSE, no private file
         files, v = generate(gate, tmp, topo, "public")
@@ -127,7 +137,7 @@ def self_test():
         os.remove(os.path.join(tmp, "packages/pub/leak.py"))
         subprocess.run(["git", "add", "-A"], cwd=tmp, check=True)
         # negative: unit flipped to public while holding the secret (cond a/c via topology)
-        flipped = topo.replace("private-ent | proprietary", "public-apache | Apache-2.0")
+        flipped = topo.replace("private-ent | proprietary", "public-core | MIT")
         files, v = generate(gate, tmp, flipped, "public")
         caught = any("secret-sk" in x for x in v)
         print(f"private unit flipped public: {len(v)} violation(s) -> expect FAIL:", "caught ✓" if caught else f"MISSED ✗ {v}")

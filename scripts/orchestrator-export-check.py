@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Export-boundary gate: fail if a private-ent unit leaks into a public export set,
-or a public-set file's unit is not Apache-compatible / not in topology, or a file carries
+or a public-set file's unit carries a non-public license / is not in topology, or a file carries
 scrub findings (secrets, author paths, session ids, project denylist). Stdlib only."""
 import argparse, os, re, subprocess, sys
 
@@ -42,11 +42,18 @@ def unit_of(path, units):
     return best
 
 
+# The three layers: one private shell, two public faces. `public` = the polished product core;
+# `process` = the shown work (rings/flows) that sits between it and the rough private shell.
+PUBLIC_TARGETS = {"public": "public-core", "process": "public-process"}
+
+
 def check(target, files, units):
-    """Return list of violation strings (empty = pass)."""
+    """Return list of violation strings (empty = pass). Every public target is partitioned:
+    a set may carry ONLY its own visibility class, and never a private-ent unit."""
     bad = []
-    if target != "public":
+    if target not in PUBLIC_TARGETS:
         return bad  # private target may carry everything
+    want = PUBLIC_TARGETS[target]
     for f in files:
         u = unit_of(f, units)
         if u is None:
@@ -55,8 +62,10 @@ def check(target, files, units):
         vis, lic = units[u]
         if vis == "private-ent":
             bad.append(f"(a) {f}: unit {u} is private-ent")
+        elif vis != want:
+            bad.append(f"(a) {f}: unit {u} is {vis}, but target '{target}' carries only {want}")
         elif lic not in OK_LICENSES:
-            bad.append(f"(b) {f}: unit {u} license '{lic}' not Apache-compatible")
+            bad.append(f"(b) {f}: unit {u} license '{lic}' not a public license (Apache-2.0/MIT/BSD/ISC)")
     return bad
 
 
@@ -102,11 +111,19 @@ def scrub_files(files, deny_path=None, allow_path=None):
 
 
 def self_test():
-    units = parse_units(open(TOPOLOGY).read())
-    assert units, "no units parsed from topology.md"
-    units = dict(units)
+    # The fixture is synthetic ON PURPOSE: a template's self-test must survive being copied into a
+    # project whose units are named differently. Measured 2026-11-05 in `tidewater` — the earlier
+    # version parsed this repo's own topology and asserted keel's `_template` rows, so a healthy
+    # project failed its own gate self-test.
+    fixture = ("| Unit | Kind | Role | Status | Visibility | License |\n|---|---|---|---|---|---|\n"
+               "| `packages/core` | lib | x | live | public-core | MIT |\n"
+               "| `apps/ui` | app | x | live | public-core | MIT |\n"
+               "| `rings/tw01` | ring | x | live | public-process | MIT |\n"
+               "| `workshop` | process | x | live | private-ent | proprietary |\n")
+    units = parse_units(fixture)
+    assert units, "fixture topology did not parse"
     units["packages/secret"] = ("private-ent", "proprietary")
-    clean = ["packages/_template/a.py", "apps/_template/b.py"]
+    clean = ["packages/core/a.py", "apps/ui/b.py"]
     planted = clean + ["packages/secret/key.py"]
     ok = True
     v = check("public", planted, units)
@@ -118,6 +135,21 @@ def self_test():
     print(f"clean ({len(clean)} files): {len(v)} violation(s)")
     print("  expect PASS:", "passed ✓" if not v else f"false positive ✗ {v}")
     ok &= not v
+    # the third layer: `process` carries ONLY public-process units, and never a private one
+    v = check("process", ["rings/tw01/cycle.md"], units)
+    print(f"process layer, its own unit: {len(v)} violation(s) -> expect PASS:",
+          "passed ✓" if not v else f"false positive ✗ {v}")
+    ok &= not v
+    v = check("process", ["rings/tw01/cycle.md"] + planted, units)
+    caught = any("packages/secret/key.py" in x for x in v)
+    print(f"process layer + private file: {len(v)} violation(s) -> expect FAIL:",
+          "caught ✓" if caught else f"MISSED ✗ {v}")
+    ok &= caught
+    v = check("process", clean, units)
+    caught = len(v) == len(clean)
+    print(f"process layer carrying core units: {len(v)} violation(s) -> expect FAIL:",
+          "caught ✓" if caught else f"MISSED ✗ {v}")
+    ok &= caught
     # scrub (condition c): synthetic leaks only, assembled at runtime
     deny, allow = [re.compile(r"AcmeClient")], [re.compile(r"intentional-example")]
     cases = {
@@ -167,9 +199,9 @@ def self_test():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--target", choices=["public", "private"])
+    ap.add_argument("--target", choices=["public", "process", "private"])
     ap.add_argument("--files", nargs="*", default=[])
-    ap.add_argument("--scrub", action="store_true", help="scrub --files for leaks (implied by --target public)")
+    ap.add_argument("--scrub", action="store_true", help="scrub --files for leaks (implied by --target public|process)")
     ap.add_argument("--denylist", metavar="PATH", help="extra denylist regex file (augments .orchestrator/scrub-denylist.txt)")
     ap.add_argument("--allowlist", metavar="PATH", help="extra allowlist regex file (augments .orchestrator/scrub-allowlist.txt)")
     ap.add_argument("--self-test", action="store_true")
@@ -181,7 +213,7 @@ def main():
     v = []
     if a.target:
         v += check(a.target, a.files, parse_units(open(TOPOLOGY).read()))
-    if a.scrub or a.target == "public":
+    if a.scrub or a.target in PUBLIC_TARGETS:
         v += scrub_files(a.files, a.denylist, a.allowlist)
     for x in v:
         print("EXPORT BLOCKED", x, file=sys.stderr)

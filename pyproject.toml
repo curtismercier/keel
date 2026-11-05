@@ -21,4 +21,4 @@ where = ["packages"]
 
 [tool.pytest.ini_options]
 pythonpath = ["packages"]
-testpaths = ["packages"]
+testpaths = ["tests", "packages"]
