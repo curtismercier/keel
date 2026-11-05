@@ -111,11 +111,19 @@ def scrub_files(files, deny_path=None, allow_path=None):
 
 
 def self_test():
-    units = parse_units(open(TOPOLOGY).read())
-    assert units, "no units parsed from topology.md"
-    units = dict(units)
+    # The fixture is synthetic ON PURPOSE: a template's self-test must survive being copied into a
+    # project whose units are named differently. Measured 2026-11-05 in `tidewater` — the earlier
+    # version parsed this repo's own topology and asserted keel's `_template` rows, so a healthy
+    # project failed its own gate self-test.
+    fixture = ("| Unit | Kind | Role | Status | Visibility | License |\n|---|---|---|---|---|---|\n"
+               "| `packages/core` | lib | x | live | public-apache | Apache-2.0 |\n"
+               "| `apps/ui` | app | x | live | public-apache | Apache-2.0 |\n"
+               "| `rings/tw01` | ring | x | live | public-process | MIT |\n"
+               "| `workshop` | process | x | live | private-ent | proprietary |\n")
+    units = parse_units(fixture)
+    assert units, "fixture topology did not parse"
     units["packages/secret"] = ("private-ent", "proprietary")
-    clean = ["packages/_template/a.py", "apps/_template/b.py"]
+    clean = ["packages/core/a.py", "apps/ui/b.py"]
     planted = clean + ["packages/secret/key.py"]
     ok = True
     v = check("public", planted, units)
@@ -128,12 +136,11 @@ def self_test():
     print("  expect PASS:", "passed ✓" if not v else f"false positive ✗ {v}")
     ok &= not v
     # the third layer: `process` carries ONLY public-process units, and never a private one
-    units["rings/tw01-shown"] = ("public-process", "mit")
-    v = check("process", ["rings/tw01-shown/cycle.md"], units)
+    v = check("process", ["rings/tw01/cycle.md"], units)
     print(f"process layer, its own unit: {len(v)} violation(s) -> expect PASS:",
           "passed ✓" if not v else f"false positive ✗ {v}")
     ok &= not v
-    v = check("process", ["rings/tw01-shown/cycle.md"] + planted, units)
+    v = check("process", ["rings/tw01/cycle.md"] + planted, units)
     caught = any("packages/secret/key.py" in x for x in v)
     print(f"process layer + private file: {len(v)} violation(s) -> expect FAIL:",
           "caught ✓" if caught else f"MISSED ✗ {v}")
