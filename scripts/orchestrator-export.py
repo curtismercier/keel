@@ -7,7 +7,7 @@ import argparse, importlib.util, os, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, ".."))
-TARGET_VIS = {"public": "public-apache", "process": "public-process", "private": "private-ent"}
+TARGET_VIS = {"public": "public-core", "process": "public-process", "private": "private-ent"}
 PUBLIC_TARGETS = ("public", "process")
 
 
@@ -78,7 +78,7 @@ def self_test():
     ok = True
     try:
         topo = ("| Unit | Kind | Role | Status | Visibility | License |\n|---|---|---|---|---|---|\n"
-                "| `packages/pub` | lib | x | live | public-apache | Apache-2.0 |\n"
+                "| `packages/pub` | lib | x | live | public-core | MIT |\n"
                 "| `packages/priv` | lib | x | live | private-ent | proprietary |\n"
                 "| `rings/tw01` | ring | shown work | live | public-process | MIT |\n")
         secret = "s" + "k-" + "a1B2" * 6  # synthetic, assembled at runtime
@@ -137,7 +137,7 @@ def self_test():
         os.remove(os.path.join(tmp, "packages/pub/leak.py"))
         subprocess.run(["git", "add", "-A"], cwd=tmp, check=True)
         # negative: unit flipped to public while holding the secret (cond a/c via topology)
-        flipped = topo.replace("private-ent | proprietary", "public-apache | Apache-2.0")
+        flipped = topo.replace("private-ent | proprietary", "public-core | MIT")
         files, v = generate(gate, tmp, flipped, "public")
         caught = any("secret-sk" in x for x in v)
         print(f"private unit flipped public: {len(v)} violation(s) -> expect FAIL:", "caught ✓" if caught else f"MISSED ✗ {v}")

@@ -24,7 +24,7 @@ Prove the gate can fail: `python3 scripts/orchestrator-export-check.py --self-te
 
 ## Generator
 `scripts/orchestrator-export.py --target public|process|private` reads the Units table, selects units whose
-Visibility matches (`public` -> `public-apache`, `process` -> `public-process`, `private` -> `private-ent`), lists
+Visibility matches (`public` -> `public-core`, `process` -> `public-process`, `private` -> `private-ent`), lists
 their files (`git ls-files`, so only tracked files), then runs the gate above over that set (a)+(b)+(c).
 PASS: prints the manifest (one path per line), exit 0. FAIL: prints `EXPORT BLOCKED ...`, exit 1.
 Pair: the generator decides *what* ships; the check is the independent verdict on it (it can also be

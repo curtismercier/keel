@@ -29,7 +29,7 @@ Click **Use this template** → name your repo → clone. Then:
 **Two shells:** the core is the product; `workshop/` is how it got made. The project stays
 atomic — it moves or extracts as one unit.
 
-**Three layers, two public faces.** `packages/` + `apps/` are the polished product (`public-apache` → `--target public`);
+**Three layers, two public faces.** `packages/` + `apps/` are the polished product (`public-core` → `--target public`);
 a `rings/` unit is the *shown* work (`public-process` → `--target process`); `workshop/` is the rough shell
 (`private-ent` → `--target private`). Each face is a generated, gate-checked export and a unit may appear in exactly one
 of them — the middle layer exists so reviewers can follow the work without reading the workshop.

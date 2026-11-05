@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Export-boundary gate: fail if a private-ent unit leaks into a public export set,
-or a public-set file's unit is not Apache-compatible / not in topology, or a file carries
+or a public-set file's unit carries a non-public license / is not in topology, or a file carries
 scrub findings (secrets, author paths, session ids, project denylist). Stdlib only."""
 import argparse, os, re, subprocess, sys
 
@@ -44,7 +44,7 @@ def unit_of(path, units):
 
 # The three layers: one private shell, two public faces. `public` = the polished product core;
 # `process` = the shown work (rings/flows) that sits between it and the rough private shell.
-PUBLIC_TARGETS = {"public": "public-apache", "process": "public-process"}
+PUBLIC_TARGETS = {"public": "public-core", "process": "public-process"}
 
 
 def check(target, files, units):
@@ -65,7 +65,7 @@ def check(target, files, units):
         elif vis != want:
             bad.append(f"(a) {f}: unit {u} is {vis}, but target '{target}' carries only {want}")
         elif lic not in OK_LICENSES:
-            bad.append(f"(b) {f}: unit {u} license '{lic}' not Apache-compatible")
+            bad.append(f"(b) {f}: unit {u} license '{lic}' not a public license (Apache-2.0/MIT/BSD/ISC)")
     return bad
 
 
@@ -116,8 +116,8 @@ def self_test():
     # version parsed this repo's own topology and asserted keel's `_template` rows, so a healthy
     # project failed its own gate self-test.
     fixture = ("| Unit | Kind | Role | Status | Visibility | License |\n|---|---|---|---|---|---|\n"
-               "| `packages/core` | lib | x | live | public-apache | Apache-2.0 |\n"
-               "| `apps/ui` | app | x | live | public-apache | Apache-2.0 |\n"
+               "| `packages/core` | lib | x | live | public-core | MIT |\n"
+               "| `apps/ui` | app | x | live | public-core | MIT |\n"
                "| `rings/tw01` | ring | x | live | public-process | MIT |\n"
                "| `workshop` | process | x | live | private-ent | proprietary |\n")
     units = parse_units(fixture)
